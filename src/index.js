@@ -1,5 +1,11 @@
 "use strict";
 
+// Import axios as the HTTP request handler
+import axios from "../node_modules/axios";
+
+// Get Console Log Background Page
+const bkg = chrome.extension.getBackgroundPage();
+
 // Get the HTML elements to manipulate
 // Form Fields
 const form = document.querySelector(".form-data");
@@ -27,6 +33,10 @@ function init() {
   const storedApiKey = localStorage.getItem("apiKey");  // Not usual to store API Key
   const storedRegion = localStorage.getItem("regionName");
 
+  // Populate the input text boxes with data if found
+  region.value = storedRegion;
+  apiKey.value = storedApiKey;
+
   // Set icon to be generic green
   //TODO
 
@@ -39,9 +49,9 @@ function init() {
     clearBtn.style.display = "none";
   } else {
     // If we have saved keys/region then use them to get and show the results
-    getCarbonUsage(storedApiKey, storedRegion);
-    form.style.display = "none";
     results.style.display = "block";
+    form.style.display = "none";
+    displayCarbonUsage(storedApiKey, storedRegion);
     clearBtn.style.display = "block";
   }
 }
@@ -62,20 +72,54 @@ function handleSubmit(event) {
   // Show the Loading div
   loading.style.display = "block";
   errors.textContent = "";
-  // Get and show results
-  getCarbonUsage(apiKey.value, region.value);
-  form.style.display = "none";
-  results.style.display = "block";
   clearBtn.style.display = "block";
+  // Get and show results
+  displayCarbonUsage(apiKey.value, region.value);
 }
 
+// Function to retrieve the Carbon Data for the region and display it
+async function displayCarbonUsage(apiKey, region) {
+  try {
+    await axios
+      .get("https://api.co2signal.com/v1/latest", {
+        params: {
+          countryCode: region,
+        },
+        headers: {
+          "auth-token": apiKey,
+        },
+      })
+      .then((response) => {
+        bkg.console.log(response);
+        if (!response.data.data.carbonIntensity) {
+          // Throw an error if no data returned
+          throw new Error("No Data!");
+        }
+        // Use the data
+        let CO2Floor = Math.floor(response.data.data.carbonIntensity);
+        let CO2Round = Math.round(response.data.data.carbonIntensity);
+        let fossilPercent = response.data.data.fossilFuelPercentage.toFixed(2);
 
-function getCarbonUsage(apiKey, region) {
+        // calculateColour(CO2)
 
+        // Update the results
+        myRegion.textContent = region;
+        usage.textContent = `${CO2Round} grams (CO2 emitted per kWh)`;
+        fossilFuel.textContent = `${fossilPercent} % (%age of fossil fuels used to generate electricity)`;
+
+        // Update the display
+        form.style.display = "none";
+        loading.style.display = "none";
+        results.style.display = "block";
+        clearBtn.style.display = "block";
+      });
+  } catch (error) {
+    bkg.console.log(error);
+    errors.textContent = "Sorry, we have no data for the region you requested";
+    loading.style.display = "none";
+    results.style.display = "none";
+  }
 }
 
 // Start the app
 init();
-
-
-
