@@ -1,3 +1,4 @@
+/* global chrome */
 "use strict";
 
 // Import axios as the HTTP request handler
@@ -37,8 +38,13 @@ function init() {
   region.value = storedRegion;
   apiKey.value = storedApiKey;
 
-  // Set icon to be generic green
-  //TODO
+  // Use Chrome RunTime to set the icon colour to green
+  chrome.runtime.sendMessage({
+    action: "updateIcon",
+    value: {
+      colour: "green",
+    },
+  });
 
   if (storedApiKey === null || storedRegion === null) {
     // If we don't have the keys then show the form & hide the other blocks
@@ -100,7 +106,8 @@ async function displayCarbonUsage(apiKey, region) {
         let CO2Round = Math.round(response.data.data.carbonIntensity);
         let fossilPercent = response.data.data.fossilFuelPercentage.toFixed(2);
 
-        // calculateColour(CO2)
+        // Update the Icon Colour based on CO2 data
+        calculateColour(CO2Floor);
 
         // Update the results
         myRegion.textContent = region;
@@ -119,6 +126,37 @@ async function displayCarbonUsage(apiKey, region) {
     loading.style.display = "none";
     results.style.display = "none";
   }
+}
+
+// Function to calculate the colour of CO2 usage
+function calculateColour(value) {
+  let co2Scale = [0, 150, 600, 750, 800];
+  let colours = ["#2AA364", "#F5EB4D", "#9E4229", "#381D02", "#381D02"];
+
+  // Find closest number in co2Scale to value entered
+  /* let closestNum = co2Scale.sort((a, b) => {
+    return Math.abs(a - value) - Math.abs(b - value);
+  })[0]; */
+  let closestNum = co2Scale.reduce((a, b) => {
+    return (Math.abs(b - value) < Math.abs (a - value) ? b : a);
+  });
+  // bkg.console.log(`${value} is closest to ${closestNum}`);
+  
+  // Find the index of the closestNum
+  let num = (element) => element === closestNum;
+  let scaleIndex = co2Scale.findIndex(num);
+
+  // Get the colour for that index
+  let closestColour = colours[scaleIndex];
+  // bkg.console.log(scaleIndex, closestColour);
+
+  // Use Chrome RunTime to update the icon colour
+  chrome.runtime.sendMessage({
+    action: "updateIcon",
+    value: {
+      colour: closestColour,
+    },
+  });
 }
 
 // Start the app
